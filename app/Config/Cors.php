@@ -76,7 +76,7 @@ class Cors extends BaseConfig
             'X-Requested-With',
             'Accept',
             'Origin',
-            'Access-Control-Allow-Credentials'
+            
         ],
 
         /**

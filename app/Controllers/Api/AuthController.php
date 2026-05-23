@@ -4,15 +4,18 @@ namespace App\Controllers\Api;
 
 use App\Controllers\BaseApiController;
 use App\Services\AuthService;
+use App\Services\EmailQueueService;
 use App\Validation\AuthValidation;
 
 class AuthController extends BaseApiController
 {
     protected AuthService $authService;
+    protected EmailQueueService $emailQueueService;
 
     public function __construct()
     {
         $this->authService = new AuthService();
+        $this->emailQueueService = new EmailQueueService();
     }
 
     public function register()
@@ -27,6 +30,17 @@ class AuthController extends BaseApiController
             );
 
             $user = $this->authService->register($data);
+
+            $this->emailQueueService->push(
+                $user->email,
+                'Welcome to BookMyShow Clone',
+                view(
+                    'emails/welcome',
+                    [
+                        'user' => $user
+                    ]
+                )
+            );
 
             return $this->successResponse(
                 'User registered successfully',
