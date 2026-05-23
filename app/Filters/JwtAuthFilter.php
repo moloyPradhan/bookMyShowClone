@@ -15,6 +15,10 @@ class JwtAuthFilter implements FilterInterface
     ) {
         try {
 
+            if ($request->getMethod() === 'OPTIONS') {
+                return service('response');
+            }
+
             $token = $request
                 ->getCookie('access_token');
 
