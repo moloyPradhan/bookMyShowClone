@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Entities\ShowSeat;
+use App\Traits\HasUUID;
 
 use CodeIgniter\Model;
 
 class ShowSeatModel extends Model
 {
+    use HasUUID;
+
     protected $table = 'show_seats';
 
     protected $primaryKey = 'id';
@@ -32,4 +35,6 @@ class ShowSeatModel extends Model
     ];
 
     protected $useTimestamps = true;
+
+    protected $beforeInsert = ['generateUUID'];
 }

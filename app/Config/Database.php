@@ -53,22 +53,22 @@ class Database extends Config
 
     public array $default = [
         'DSN'      => '',
-        'hostname' => '',
-        'username' => '',
+        'hostname' => 'localhost',
+        'username' => 'root',
         'password' => '',
-        'database' => '',
-        'DBDriver' => 'Postgre',
+        'database' => 'capitable',
+        'DBDriver' => 'MySQLi',
         'DBPrefix' => '',
         'pConnect' => false,
         'DBDebug'  => true,
-        'charset'  => 'utf8',
-        'DBCollat' => '',
+        'charset'  => 'utf8mb4',
+        'DBCollat' => 'utf8mb4_general_ci',
         'swapPre'  => '',
         'encrypt'  => false,
         'compress' => false,
         'strictOn' => false,
         'failover' => [],
-        'port'     => 5432,
+        'port'     => 3306,
     ];
 
     //    /**

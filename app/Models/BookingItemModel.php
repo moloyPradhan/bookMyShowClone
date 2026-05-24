@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\HasUUID;
 use CodeIgniter\Model;
 
 class BookingItemModel extends Model
 {
+    use HasUUID;
+
     protected $table = 'booking_items';
 
     protected $primaryKey = 'id';
@@ -20,4 +23,6 @@ class BookingItemModel extends Model
     ];
 
     protected $useTimestamps = true;
+
+    protected $beforeInsert = ['generateUUID'];
 }

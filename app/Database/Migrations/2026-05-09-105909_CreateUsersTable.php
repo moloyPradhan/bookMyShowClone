@@ -8,8 +8,6 @@ class CreateUsersTable extends Migration
 {
     public function up()
     {
-        $this->db->query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
-
         $this->forge->addField([
 
             'id' => [
