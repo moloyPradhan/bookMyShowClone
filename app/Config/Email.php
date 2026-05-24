@@ -24,7 +24,7 @@ class Email extends BaseConfig
 
     public function __construct()
     {
-        parent::__construct();
+        // parent::__construct();
 
         $this->fromEmail = env('email.fromEmail');
         $this->fromName = env('email.fromName');
