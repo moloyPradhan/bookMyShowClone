@@ -7,6 +7,10 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
+$routes->options('api/(:any)', static function () {
+    return response()->setStatusCode(200);
+});
+
 $routes->group('api', function ($routes) {
 
     $routes->post('register', 'Api\AuthController::register');
