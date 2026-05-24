@@ -11,17 +11,20 @@ class CreateShowsTable extends Migration
         $this->forge->addField([
 
             'id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
             'movie_id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
             'screen_id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 

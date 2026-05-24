@@ -11,17 +11,20 @@ class CreateBookingItemsTable extends Migration
         $this->forge->addField([
 
             'id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
             'booking_id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
             'show_seat_id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 

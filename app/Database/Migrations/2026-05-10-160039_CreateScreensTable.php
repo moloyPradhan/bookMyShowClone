@@ -11,12 +11,14 @@ class CreateScreensTable extends Migration
         $this->forge->addField([
 
             'id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
             'theater_id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 

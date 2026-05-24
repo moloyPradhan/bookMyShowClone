@@ -11,12 +11,14 @@ class CreateTheatersTable extends Migration
         $this->forge->addField([
 
             'id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
             'owner_id' => [
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
                 'null' => false,
             ],
 
