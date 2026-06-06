@@ -3,26 +3,30 @@
 namespace App\Services;
 
 use Razorpay\Api\Api;
-
 use Ramsey\Uuid\Uuid;
 
 class PaymentGatewayService
 {
+    protected Api $api;
 
-    public function createOrder(float $totalAmount, array $notes = [])
+    public function __construct()
     {
-        $api = new Api(
+        $this->api = new Api(
             env('RAZORPAY_KEY_ID'),
             env('RAZORPAY_KEY_SECRET')
         );
+    }
 
-        $order = $api->order->create([
+    public function createOrder(
+        float $totalAmount,
+        array $notes = []
+    ) {
+
+        return $this->api->order->create([
             'receipt'  => Uuid::uuid7()->toString(),
-            'amount'   => $totalAmount * 100,
+            'amount'   => (int) round($totalAmount * 100),
             'currency' => 'INR',
-            'notes'    => $notes
+            'notes'    => $notes,
         ]);
-
-        return $order;
     }
 }
