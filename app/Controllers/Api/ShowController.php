@@ -120,13 +120,41 @@ class ShowController extends BaseApiController
         });
     }
 
-    public function completeBooking(string $bookingId)
+    public function createBooking(string $showId)
     {
-        return $this->execute(function () use ($bookingId) {
+        return $this->execute(function () use ($showId) {
+
+            $data = $this->jsonData();
+
+            $this->validateRequest(
+                $data,
+                BookingValidation::confirmBookingRules()
+            );
+
+            $result = $this->showService
+                ->createBooking(
+                    $showId,
+                    $data['seat_ids'],
+                    $this->authenticatedUser()
+                );
+
+            return $this->successResponse(
+                'Booking initated successfully',
+                $result,
+                201
+            );
+        });
+    }
+
+    public function completeBooking()
+    {
+        return $this->execute(function () {
+
+            $data = $this->jsonData();
 
             $result = $this->showService
                 ->completeBooking(
-                    $bookingId,
+                    $data,
                     $this->authenticatedUser()
                 );
 

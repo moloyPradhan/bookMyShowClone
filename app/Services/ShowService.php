@@ -13,6 +13,7 @@ use App\Models\ShowSeatModel;
 
 use App\Models\BookingModel;
 use App\Models\BookingItemModel;
+use App\Models\PaymentTransactionModel;
 
 use Ramsey\Uuid\Uuid;
 
@@ -456,49 +457,128 @@ class ShowService
     }
 
     public function completeBooking(
-        string $bookingId,
+        array $data,
         object $user
     ) {
 
         $db = db_connect();
+
         $db->transBegin();
 
         try {
 
+            $orderId = $data['order_id'];
+            $paymentId = $data['payment_id'];
+
+            $paymentTransactionModel = new PaymentTransactionModel();
+            $showModel = new ShowModel();
+            $showSeatModel = new ShowSeatModel();
             $bookingModel = new BookingModel();
             $bookingItemModel = new BookingItemModel();
-            $showSeatModel = new ShowSeatModel();
 
-            $booking = $bookingModel
-                ->where('id', $bookingId)
-                ->where('user_id', $user->id)
+            $transaction = $paymentTransactionModel
+                ->where('order_id', $orderId)
                 ->first();
 
-            if (! $booking) {
+            if (! $transaction) {
                 throw new \Exception(
-                    'Booking not found',
+                    'Transaction not found',
                     404
                 );
             }
 
-            if ($booking['status'] === 'confirmed') {
+            if ($transaction->status === 'captured') {
                 throw new \Exception(
-                    'Booking already confirmed',
+                    'Payment already processed',
                     409
                 );
             }
 
-            $items = $bookingItemModel
-                ->where(
-                    'booking_id',
-                    $bookingId
-                )
+            $payload = json_decode(
+                $transaction->payload,
+                true
+            );
+
+            $showId = $payload['show_id'];
+            $seatIds = $payload['seat_ids'];
+
+            $show = $showModel->find($showId);
+
+            if (! $show) {
+                throw new \Exception(
+                    'Show not found',
+                    404
+                );
+            }
+
+            $seats = $showSeatModel
+                ->where('show_id', $showId)
+                ->whereIn('id', $seatIds)
                 ->findAll();
 
-            $seatIds = [];
-            foreach ($items as $item) {
-                $seatIds[] = $item['show_seat_id'];
+            if (count($seats) !== count($seatIds)) {
+                throw new \Exception(
+                    'Invalid seats',
+                    404
+                );
             }
+
+            foreach ($seats as $seat) {
+
+                $lockExpired = (
+                    $seat->locked_until === null
+                    ||
+                    strtotime($seat->locked_until) < time()
+                );
+
+                if (
+                    $seat->status !== 'locked'
+                    || $seat->locked_by !== $user->id
+                    || $lockExpired
+                ) {
+
+                    throw new \Exception(
+                        'Some seats are no longer available',
+                        409
+                    );
+                }
+            }
+
+            $bookingId = Uuid::uuid7()->toString();
+
+            $bookingNumber = 'BMS-' . strtoupper(
+                substr(
+                    uniqid(),
+                    -8
+                )
+            );
+
+            $totalAmount = count($seats) * $show->price;
+
+            $bookingModel->insert([
+                'id' => $bookingId,
+                'user_id' => $user->id,
+                'show_id' => $showId,
+                'booking_number' => $bookingNumber,
+                'total_amount' => $totalAmount,
+                'status' => 'confirmed',
+            ]);
+
+            $items = [];
+
+            foreach ($seats as $seat) {
+
+                $items[] = [
+                    'id' => Uuid::uuid7()->toString(),
+                    'booking_id' => $bookingId,
+                    'show_seat_id' => $seat->id,
+                    'price' => $show->price,
+                ];
+            }
+
+            $bookingItemModel->insertBatch(
+                $items
+            );
 
             $showSeatModel
                 ->whereIn('id', $seatIds)
@@ -509,31 +589,46 @@ class ShowService
                 ])
                 ->update();
 
-            $bookingModel
-                ->update($bookingId, [
-                    'status' => 'confirmed',
-                ]);
+            $paymentTransactionModel
+                ->update(
+                    $transaction->id,
+                    [
+                        'payment_id' => $paymentId,
+                        'status' => 'captured',
+                    ]
+                );
 
             if ($db->transStatus() === false) {
+
                 throw new \Exception(
-                    'Booking confirmation failed',
+                    'Booking completion failed',
                     500
                 );
             }
 
             $db->transCommit();
 
+            $socketService = new SocketService();
+
+            $socketService->emitSeatUpdate(
+                $showId,
+                $seatIds,
+                'booked'
+            );
+
             return [
                 'booking_id' => $bookingId,
+                'booking_number' => $bookingNumber,
                 'status' => 'confirmed',
+                'amount' => $totalAmount,
             ];
         } catch (\Throwable $e) {
 
             $db->transRollback();
+
             throw $e;
         }
     }
-
 
     public function cleanupExpiredLocks()
     {
@@ -556,5 +651,124 @@ class ShowService
         return [
             'cleaned' => $updated,
         ];
+    }
+
+
+    public function createBooking(
+        string $showId,
+        array $seatIds,
+        object $user
+    ) {
+
+        $db = db_connect();
+
+        $db->transBegin();
+
+        try {
+
+            $showSeatModel = new ShowSeatModel();
+            $showModel = new ShowModel();
+            $paymentTransactionModel = new PaymentTransactionModel();
+
+            $show = $showModel->find($showId);
+
+            if (! $show) {
+                throw new \Exception(
+                    'Show not found',
+                    404
+                );
+            }
+
+            $seats = $showSeatModel
+                ->where('show_id', $showId)
+                ->whereIn('id', $seatIds)
+                ->findAll();
+
+            if (count($seats) !== count($seatIds)) {
+                throw new \Exception(
+                    'Invalid seats',
+                    404
+                );
+            }
+
+            foreach ($seats as $seat) {
+
+                $lockExpired = (
+                    $seat->locked_until === null
+                    ||
+                    strtotime($seat->locked_until) < time()
+                );
+
+                if (
+                    $seat->status !== 'locked'
+                    || $seat->locked_by !== $user->id
+                    || $lockExpired
+                ) {
+
+                    throw new \Exception(
+                        'Some seats are not locked by you',
+                        409
+                    );
+                }
+            }
+
+            $totalAmount = count($seats) * $show->price;
+
+            $notes = [
+                'purpose' => 'booking_show',
+                'show_id' => $showId,
+                'user_id' => $user->id,
+                'name'    => $user->name,
+                'mobile'  => $user->mobile,
+                'email'   => $user->email,
+            ];
+
+            $paymentGatewayService = new PaymentGatewayService();
+
+            $order = $paymentGatewayService->createOrder(
+                $totalAmount,
+                $notes
+            );
+
+            $paymentTransactionModel->insert([
+                'uid'        => $user->id,
+                'order_id'   => $order->id,
+                'payment_id' => null,
+                'purpose'    => 'booking_show',
+                'amount'     => $totalAmount,
+                'status'     => 'created',
+                'payload'    => json_encode([
+                    'show_id'  => $showId,
+                    'seat_ids' => $seatIds,
+                    'user_id'  => $user->id,
+                ]),
+                'success_action' => json_encode([
+                    'action' => 'create_booking'
+                ]),
+            ]);
+
+            if ($db->transStatus() === false) {
+                throw new \Exception(
+                    'Failed to create payment transaction',
+                    500
+                );
+            }
+
+            $db->transCommit();
+
+            return [
+                'gateway'  => 'razorpay',
+                'key'      => env('RAZORPAY_KEY_ID'),
+                'order_id' => $order->id,
+                'amount'   => $order->amount,
+                'currency' => 'INR',
+                'status'   => 'created',
+            ];
+        } catch (\Throwable $e) {
+
+            $db->transRollback();
+
+            throw $e;
+        }
     }
 }

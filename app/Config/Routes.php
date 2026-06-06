@@ -112,7 +112,7 @@ $routes->group('api', function ($routes) {
 
         $routes->post(
             '(:segment)/create-booking',
-            'Api\ShowController::createPendingBooking/$1'
+            'Api\ShowController::createBooking/$1'
         );
     });
 
@@ -122,7 +122,7 @@ $routes->group('api', function ($routes) {
         ]
     ], function ($routes) {
         $routes->post(
-            '(:segment)/complete',
+            'complete',
             'Api\ShowController::completeBooking/$1'
         );
 
