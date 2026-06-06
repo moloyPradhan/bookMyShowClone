@@ -185,46 +185,54 @@ class ShowService
             ->findAll();
     }
 
-    public function showSeats(
-        string $showId
-    ) {
 
+    public function showSeats(string $showId)
+    {
         $showSeatModel = new ShowSeatModel();
 
+        $this->releaseExpiredLocks($showId);
+
         return $showSeatModel
-
             ->select('
-
             show_seats.*,
-
             screen_seats.seat_row,
             screen_seats.seat_number,
             screen_seats.seat_label,
             screen_seats.seat_type
-
         ')
-
             ->join(
                 'screen_seats',
                 'screen_seats.id = show_seats.screen_seat_id'
             )
-
             ->where(
                 'show_seats.show_id',
                 $showId
             )
-
             ->orderBy(
                 'screen_seats.seat_row',
                 'ASC'
             )
-
             ->orderBy(
                 'screen_seats.seat_number',
                 'ASC'
             )
-
             ->findAll();
+    }
+
+    private function releaseExpiredLocks(string $showId): void
+    {
+        $showSeatModel = new ShowSeatModel();
+
+        $showSeatModel
+            ->where('show_id', $showId)
+            ->where('status', 'locked')
+            ->where('locked_until <', date('Y-m-d H:i:s'))
+            ->set([
+                'status' => 'available',
+                'locked_until' => null,
+                'locked_by' => null,
+            ])
+            ->update();
     }
 
 
@@ -240,6 +248,8 @@ class ShowService
         try {
 
             $showSeatModel = new ShowSeatModel();
+
+            $this->releaseExpiredLocks($showId);
 
             $lockUntil = date(
                 'Y-m-d H:i:s',

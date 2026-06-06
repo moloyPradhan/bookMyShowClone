@@ -12,7 +12,8 @@ class AddLockedByToShowSeats extends Migration
 
             'locked_by' => [
 
-                'type' => 'UUID',
+                'type' => 'CHAR',
+                'constraint' => 36,
 
                 'null' => true,
 

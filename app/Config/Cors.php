@@ -35,7 +35,8 @@ class Cors extends BaseConfig
          *   - ['https://www.example.com']
          */
         'allowedOrigins' => [
-            'http://localhost:5173'
+            'http://localhost:5173',
+            'http://127.0.0.1:5173',
         ],
 
         /**
@@ -76,7 +77,7 @@ class Cors extends BaseConfig
             'X-Requested-With',
             'Accept',
             'Origin',
-            
+
         ],
 
         /**
@@ -103,7 +104,14 @@ class Cors extends BaseConfig
          * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Methods
          */
         // 'allowedMethods' => [],
-        'allowedMethods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        'allowedMethods' => [
+            'GET',
+            'POST',
+            'PUT',
+            'PATCH',
+            'DELETE',
+            'OPTIONS',
+        ],
 
         /**
          * Set how many seconds the results of a preflight request can be cached.

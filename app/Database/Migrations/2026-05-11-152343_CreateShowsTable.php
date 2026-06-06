@@ -29,12 +29,12 @@ class CreateShowsTable extends Migration
             ],
 
             'start_time' => [
-                'type' => 'TIMESTAMP',
+                'type' => 'DATETIME',
                 'null' => false,
             ],
 
             'end_time' => [
-                'type' => 'TIMESTAMP',
+                'type' => 'DATETIME',
                 'null' => false,
             ],
 
