@@ -748,6 +748,167 @@ class ShowService
         }
     }
 
+    public function completeBookingWebhook(
+        string $orderId,
+        string $paymentId,
+        array $webhookPayload
+    ) {
+        $db = db_connect();
+        $db->transBegin();
+
+        try {
+            $paymentTransactionModel = new PaymentTransactionModel();
+            $showModel = new ShowModel();
+            $showSeatModel = new ShowSeatModel();
+            $bookingModel = new BookingModel();
+            $bookingItemModel = new BookingItemModel();
+            $userModel = new \App\Models\UserModel();
+
+            $transaction = $paymentTransactionModel
+                ->where('order_id', $orderId)
+                ->first();
+
+            if (! $transaction) {
+                throw new \Exception(
+                    'Transaction not found',
+                    404
+                );
+            }
+
+            if ($transaction->status === 'captured') {
+                $db->transCommit();
+                return [
+                    'booking_id' => null,
+                    'status' => 'already_processed',
+                    'amount' => $transaction->amount,
+                ];
+            }
+
+            // Update transaction with webhook response early
+            $paymentTransactionModel
+                ->update(
+                    $transaction->id,
+                    [
+                        'webhook_response' => json_encode($webhookPayload),
+                    ]
+                );
+
+            $payload = json_decode(
+                $transaction->payload,
+                true
+            );
+
+            $showId = $payload['show_id'];
+            $seatIds = $payload['seat_ids'];
+            $userId = $transaction->uid ?? $payload['user_id'];
+
+            $user = $userModel->find($userId);
+            if (! $user) {
+                throw new \Exception(
+                    'User not found',
+                    404
+                );
+            }
+
+            $show = $showModel->find($showId);
+            if (! $show) {
+                throw new \Exception(
+                    'Show not found',
+                    404
+                );
+            }
+
+            $seats = $showSeatModel
+                ->where('show_id', $showId)
+                ->whereIn('id', $seatIds)
+                ->findAll();
+
+            if (count($seats) !== count($seatIds)) {
+                throw new \Exception(
+                    'Invalid seats count',
+                    404
+                );
+            }
+
+            // Create Booking
+            $bookingId = Uuid::uuid7()->toString();
+            $bookingNumber = 'BMS-' . strtoupper(
+                substr(
+                    uniqid(),
+                    -8
+                )
+            );
+            $totalAmount = count($seats) * $show->price;
+
+            $bookingModel->insert([
+                'id' => $bookingId,
+                'user_id' => $userId,
+                'show_id' => $showId,
+                'booking_number' => $bookingNumber,
+                'total_amount' => $totalAmount,
+                'status' => 'confirmed',
+            ]);
+
+            $items = [];
+            foreach ($seats as $seat) {
+                $items[] = [
+                    'id' => Uuid::uuid7()->toString(),
+                    'booking_id' => $bookingId,
+                    'show_seat_id' => $seat->id,
+                    'price' => $show->price,
+                ];
+            }
+
+            $bookingItemModel->insertBatch($items);
+
+            // Update seat statuses to booked, bypass lock validations since payment is already successful
+            $showSeatModel
+                ->whereIn('id', $seatIds)
+                ->set([
+                    'status' => 'booked',
+                    'locked_until' => null,
+                    'locked_by' => null,
+                ])
+                ->update();
+
+            // Update transaction to captured
+            $paymentTransactionModel
+                ->update(
+                    $transaction->id,
+                    [
+                        'payment_id' => $paymentId,
+                        'status' => 'captured',
+                    ]
+                );
+
+            if ($db->transStatus() === false) {
+                throw new \Exception(
+                    'Booking webhook completion failed',
+                    500
+                );
+            }
+
+            $db->transCommit();
+
+            $socketService = new SocketService();
+            $socketService->emitSeatUpdate(
+                $showId,
+                $seatIds,
+                'booked'
+            );
+
+            return [
+                'booking_id' => $bookingId,
+                'booking_number' => $bookingNumber,
+                'status' => 'confirmed',
+                'amount' => $totalAmount,
+            ];
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            throw $e;
+        }
+    }
+
     public function cleanupExpiredLocks()
     {
         $showSeatModel = new ShowSeatModel();

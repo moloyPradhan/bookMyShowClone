@@ -30,6 +30,8 @@ $routes->group('api', function ($routes) {
 
     $routes->post('login/google', 'Api\AuthController::googleLogin');
 
+    $routes->post('webhooks/payment', 'Api\WebhookController::handlePaymentWebhook');
+
     $routes->group('movies', function ($routes) {
         $routes->get(
             '/',
