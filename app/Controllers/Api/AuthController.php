@@ -209,17 +209,49 @@ class AuthController extends BaseApiController
             $data = $this->jsonData();
 
             if (empty($data['token'])) {
-                throw new \Exception('Google token is required');
+                throw new \Exception('Google token is required', 400);
+            }
+
+            // Manually decode the token first to inspect the payload for debugging
+            $tokenParts = explode('.', $data['token']);
+            if (count($tokenParts) !== 3) {
+                throw new \Exception('Google token is malformed (should have 3 parts separated by dots)', 400);
+            }
+
+            $decodedPayload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $tokenParts[1])), true);
+            if (!$decodedPayload) {
+                throw new \Exception('Failed to base64-decode the Google token payload', 400);
+            }
+
+            $clientId = env('GOOGLE_CLIENT_ID');
+            $aud = $decodedPayload['aud'] ?? '';
+            $iss = $decodedPayload['iss'] ?? '';
+            $exp = $decodedPayload['exp'] ?? 0;
+
+            if ($iss !== 'https://accounts.google.com' && $iss !== 'accounts.google.com') {
+                throw new \Exception('Google token issuer is invalid. Got: ' . $iss, 400);
+            }
+
+            if ($aud !== $clientId) {
+                throw new \Exception('Google token client ID (aud) mismatch. Token has: ' . $aud . ', but server expected: ' . $clientId, 400);
+            }
+
+            if (time() >= $exp) {
+                throw new \Exception('Google token has expired. Token exp: ' . date('Y-m-d H:i:s', $exp) . ', current server time: ' . date('Y-m-d H:i:s'), 400);
             }
 
             $client = new GoogleClient([
-                'client_id' => env('GOOGLE_CLIENT_ID')
+                'client_id' => $clientId
             ]);
 
-            $payload = $client->verifyIdToken($data['token']);
+            try {
+                $payload = $client->verifyIdToken($data['token']);
+            } catch (\Throwable $e) {
+                throw new \Exception('Cryptographic verification failed: ' . $e->getMessage(), 400);
+            }
 
             if (!$payload) {
-                throw new \Exception('Invalid Google token');
+                throw new \Exception('Invalid Google token (signature verification failed or internal client error)', 400);
             }
 
             $payload['role'] = $data['role'];

@@ -46,5 +46,23 @@ class BookingController extends BaseApiController
                 $booking
             );
         });
+     }
+
+    public function cancel(string $bookingId)
+    {
+        return $this->execute(function () use ($bookingId) {
+
+            $result = $this->bookingService
+                ->cancelBooking(
+                    $bookingId,
+                    $this->authenticatedUser()
+                );
+
+            return $this->successResponse(
+                'Booking cancelled successfully',
+                $result
+            );
+        });
     }
 }
+

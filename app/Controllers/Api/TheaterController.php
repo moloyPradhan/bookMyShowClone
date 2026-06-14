@@ -37,4 +37,17 @@ class TheaterController extends BaseApiController
             );
         });
     }
+
+    public function index()
+    {
+        return $this->execute(function () {
+            $user = $this->authenticatedUser();
+            $theaters = $this->theaterService->listTheaters($user);
+            return $this->successResponse(
+                'Theaters fetched successfully',
+                $theaters
+            );
+        });
+    }
 }
+

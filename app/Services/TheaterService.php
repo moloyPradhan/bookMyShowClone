@@ -66,4 +66,13 @@ class TheaterService
             $theater->id
         );
     }
+
+    public function listTheaters(object $user)
+    {
+        $theaterModel = new TheaterModel();
+        return $theaterModel
+            ->where('owner_id', $user->id)
+            ->findAll();
+    }
 }
+

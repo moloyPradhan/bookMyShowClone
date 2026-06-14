@@ -6,6 +6,12 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 $routes->get('/', 'Home::index');
+$routes->get('login', 'DashboardController::login');
+$routes->get('admin', 'DashboardController::adminDashboard');
+$routes->get('admin/movies', 'DashboardController::adminListMovies');
+$routes->get('admin/movies/add', 'DashboardController::adminAddMovie');
+$routes->get('admin/cleanup', 'DashboardController::adminCleanup');
+$routes->get('theater-owner', 'DashboardController::theaterOwner');
 
 $routes->options('api/(:any)', static function () {
     return response()->setStatusCode(200);
@@ -75,6 +81,7 @@ $routes->group('api', function ($routes) {
             'role:theater_owner'
         ]
     ], function ($routes) {
+        $routes->get('/', 'Api\TheaterController::index');
         $routes->post('register', 'Api\TheaterController::register');
 
         $routes->post(
@@ -140,6 +147,11 @@ $routes->group('api', function ($routes) {
         $routes->get(
             '(:segment)',
             'Api\BookingController::showBooking/$1'
+        );
+
+        $routes->post(
+            '(:segment)/cancel',
+            'Api\BookingController::cancel/$1'
         );
     });
 

@@ -319,9 +319,9 @@ class AuthService
             $user->fill([
                 'name'      => $payload['name'],
                 'email'     => $payload['email'],
-                'google_id' => $payload['sub'],
-                'avatar'    => $payload['picture'] ?? null,
                 'role'      => $payload['role'],
+                'avatar'    => $payload['picture'] ?? null,
+                'google_id' => $payload['sub'],
             ]);
 
             $userModel->insert($user);
@@ -330,11 +330,10 @@ class AuthService
                 $userModel->getInsertID()
             );
         } else {
-
-            // Update Google ID if missing
+            
             if (empty($user->google_id)) {
-
                 $userModel->update($user->id, [
+                    'name'      => $payload['name'],
                     'google_id' => $payload['sub'],
                     'avatar'    => $payload['picture'] ?? $user->avatar,
                 ]);
