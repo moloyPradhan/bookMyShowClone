@@ -493,6 +493,24 @@
                     <button type="submit" class="btn-submit">Generate Layout</button>
                 </form>
             </div>
+
+            <div class="section-card">
+                <div class="section-header">My Screens Catalog</div>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Theater Name</th>
+                            <th>Screen Name</th>
+                            <th>Type</th>
+                            <th>Seats</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="screens-table-body">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Section: Schedule Shows -->
@@ -535,6 +553,26 @@
                     </div>
                     <button type="submit" class="btn-submit">Schedule Show</button>
                 </form>
+            </div>
+
+            <div class="section-card">
+                <div class="section-header">My Scheduled Shows</div>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Movie</th>
+                            <th>Theater & Screen</th>
+                            <th>Start Time</th>
+                            <th>Format</th>
+                            <th>Language</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shows-table-body">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -689,9 +727,13 @@
             let screenCount = 0;
             const layoutSelect = document.getElementById('layout-screen-select');
             const showScreenSelect = document.getElementById('show-screen-select');
+            const tableBody = document.getElementById('screens-table-body');
             
             layoutSelect.innerHTML = '<option value="">-- Choose Screen --</option>';
             showScreenSelect.innerHTML = '<option value="">-- Choose Screen --</option>';
+            if (tableBody) {
+                tableBody.innerHTML = '';
+            }
 
             for (const theater of myTheaters) {
                 try {
@@ -701,15 +743,85 @@
                         const screens = result.data;
                         screenCount += screens.length;
                         screens.forEach(screen => {
+                            screen.theater_name = theater.name;
                             myScreens.push(screen);
                             const option = `<option value="${screen.id}">${theater.name} - ${screen.name}</option>`;
                             layoutSelect.insertAdjacentHTML('beforeend', option);
                             showScreenSelect.insertAdjacentHTML('beforeend', option);
+
+                            if (tableBody) {
+                                const statusClass = screen.status === 'active' ? 'badge-active' : 'badge-pending';
+                                const row = `
+                                    <tr>
+                                        <td style="font-weight: 500;">${theater.name}</td>
+                                        <td>${screen.name}</td>
+                                        <td style="text-transform: capitalize;">${screen.type}</td>
+                                        <td>${screen.total_seats}</td>
+                                        <td><span class="badge ${statusClass}">${screen.status || 'active'}</span></td>
+                                    </tr>
+                                `;
+                                tableBody.insertAdjacentHTML('beforeend', row);
+                            }
                         });
                     }
                 } catch (err) {}
             }
+
+            if (tableBody && screenCount === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No screens registered yet.</td></tr>';
+            }
+
             document.getElementById('stat-screens-count').innerText = screenCount;
+            loadAllShows();
+        }
+
+        async function loadAllShows() {
+            const tableBody = document.getElementById('shows-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = '';
+            }
+            
+            let showCount = 0;
+
+            for (const screen of myScreens) {
+                try {
+                    const response = await apiCall(`/api/screens/${screen.id}/shows`);
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                        const shows = result.data || [];
+                        showCount += shows.length;
+                        shows.forEach(show => {
+                            if (tableBody) {
+                                const statusClass = show.status === 'active' ? 'badge-active' : 'badge-pending';
+                                const formattedTime = new Date(show.start_time).toLocaleString([], {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short'
+                                });
+                                const row = `
+                                    <tr>
+                                        <td style="font-weight: 500;">${show.movie_title || 'Unknown Movie'}</td>
+                                        <td>${screen.theater_name || 'Theater'} - ${screen.name}</td>
+                                        <td>${formattedTime}</td>
+                                        <td>${show.format}</td>
+                                        <td>${show.language}</td>
+                                        <td>₹${parseFloat(show.price).toFixed(2)}</td>
+                                        <td><span class="badge ${statusClass}">${show.status}</span></td>
+                                    </tr>
+                                `;
+                                tableBody.insertAdjacentHTML('beforeend', row);
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error('Failed to load shows for screen:', screen.id, err);
+                }
+            }
+
+            if (tableBody && showCount === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No shows scheduled yet.</td></tr>';
+            }
+            
+            document.getElementById('stat-shows-count').innerText = showCount;
         }
 
         async function loadMoviesDropdown() {
@@ -833,9 +945,7 @@
                 if (response.ok && result.success) {
                     showToast('Show scheduled successfully!', 'success');
                     e.target.reset();
-                    // update shows counter
-                    let showsCountElem = document.getElementById('stat-shows-count');
-                    showsCountElem.innerText = parseInt(showsCountElem.innerText) + 1;
+                    loadAllShows();
                 } else {
                     showToast(result.message || 'Scheduling failed', 'error');
                 }
