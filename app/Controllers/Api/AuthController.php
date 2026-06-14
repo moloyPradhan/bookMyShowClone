@@ -7,6 +7,9 @@ use App\Services\AuthService;
 use App\Services\EmailQueueService;
 use App\Validation\AuthValidation;
 
+use Google\Client as GoogleClient;
+
+
 class AuthController extends BaseApiController
 {
     protected AuthService $authService;
@@ -195,6 +198,62 @@ class AuthController extends BaseApiController
                 ->deleteCookie(
                     'refresh_token'
                 );
+        });
+    }
+
+
+    public function googleLogin()
+    {
+        return $this->execute(function () {
+
+            $data = $this->jsonData();
+
+            if (empty($data['token'])) {
+                throw new \Exception('Google token is required');
+            }
+
+            $client = new GoogleClient([
+                'client_id' => env('GOOGLE_CLIENT_ID')
+            ]);
+
+            $payload = $client->verifyIdToken($data['token']);
+
+            if (!$payload) {
+                throw new \Exception('Invalid Google token');
+            }
+
+            $payload['role'] = $data['role'];
+
+            $result = $this->authService->googleLogin($payload);
+
+            $response = $this->successResponse(
+                'Login successful',
+                [
+                    'user' => $result['user']
+                ]
+            );
+
+            return $response
+
+                ->setCookie([
+                    'name'     => 'access_token',
+                    'value'    => $result['access_token'],
+                    'expire'   => $this->authConfig->accessTokenExpire,
+                    'httponly' => true,
+                    'secure'   => $this->authConfig->cookieSecure,
+                    'samesite' => $this->authConfig->cookieSameSite,
+                    'path'     => '/',
+                ])
+
+                ->setCookie([
+                    'name'     => 'refresh_token',
+                    'value'    => $result['refresh_token'],
+                    'expire'   => $this->authConfig->refreshTokenExpire,
+                    'httponly' => true,
+                    'secure'   => $this->authConfig->cookieSecure,
+                    'samesite' => $this->authConfig->cookieSameSite,
+                    'path'     => '/',
+                ]);
         });
     }
 }

@@ -302,4 +302,87 @@ class AuthService
             ->where('user_id', $userId)
             ->delete();
     }
+
+
+    public function googleLogin(array $payload): array
+    {
+        $userModel = new UserModel();
+
+        $user = $userModel
+            ->where('email', $payload['email'])
+            ->first();
+
+        if (!$user) {
+
+            $user = new User();
+
+            $user->fill([
+                'name'      => $payload['name'],
+                'email'     => $payload['email'],
+                'google_id' => $payload['sub'],
+                'avatar'    => $payload['picture'] ?? null,
+                'role'      => $payload['role'],
+            ]);
+
+            $userModel->insert($user);
+
+            $user = $userModel->find(
+                $userModel->getInsertID()
+            );
+        } else {
+
+            // Update Google ID if missing
+            if (empty($user->google_id)) {
+
+                $userModel->update($user->id, [
+                    'google_id' => $payload['sub'],
+                    'avatar'    => $payload['picture'] ?? $user->avatar,
+                ]);
+
+                $user = $userModel->find($user->id);
+            }
+        }
+
+        $accessToken = generateAccessToken(
+            $user->publicData()
+        );
+
+        $refreshToken = generateRefreshToken(
+            $user->publicData()
+        );
+
+        // Save refresh token session
+        $sessionModel = new UserSessionModel();
+
+        $session = new UserSession();
+
+        $session->fill([
+            'user_id' => $user->id,
+
+            'refresh_token' => password_hash(
+                $refreshToken,
+                PASSWORD_DEFAULT
+            ),
+
+            'ip_address' => service('request')
+                ->getIPAddress(),
+
+            'user_agent' => service('request')
+                ->getUserAgent()
+                ->getAgentString(),
+
+            'expires_at' => date(
+                'Y-m-d H:i:s',
+                time() + 604800 // 7 days
+            ),
+        ]);
+
+        $sessionModel->insert($session);
+
+        return [
+            'access_token'  => $accessToken,
+            'refresh_token' => $refreshToken,
+            'user'          => $user->publicData(),
+        ];
+    }
 }

@@ -11,12 +11,18 @@ $routes->options('api/(:any)', static function () {
     return response()->setStatusCode(200);
 });
 
+// $routes->options('(:any)', static function () {
+//     return response()->setStatusCode(200);
+// });
+
 $routes->group('api', function ($routes) {
 
     $routes->post('register', 'Api\AuthController::register');
     $routes->post('login', 'Api\AuthController::login');
     $routes->post('logout', 'Api\AuthController::logout');
     $routes->post('refresh', 'Api\AuthController::refresh');
+
+    $routes->post('login/google', 'Api\AuthController::googleLogin');
 
     $routes->group('movies', function ($routes) {
         $routes->get(
